@@ -1,4 +1,4 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
 use syn::{parse_macro_input, Attribute, Data, DeriveInput, Fields::Unnamed, Ident, Variant};
 
@@ -54,7 +54,21 @@ pub fn derive_activity_handler(input: proc_macro::TokenStream) -> proc_macro::To
     .iter()
     .filter(|attr| attr.path.is_ident("activity_handler"))
     .collect();
-  let attrs = &attrs.first().unwrap().tokens;
+  let attrs: &Vec<TokenStream> = &attrs
+    .first()
+    .unwrap()
+    .tokens
+    .clone()
+    .into_iter()
+    .map(|t| {
+      if let TokenTree::Group(g) = t {
+        g.stream()
+      } else {
+        panic!()
+      }
+    })
+    .collect();
+  let attrs = attrs.first();
 
   let enum_name = input.ident;
 
@@ -75,7 +89,6 @@ pub fn derive_activity_handler(input: proc_macro::TokenStream) -> proc_macro::To
     .iter()
     .map(|v| generate_match_arm(&enum_name, v, &body_receive));
 
-  // TODO: dont reference LemmyContext directly
   let expanded = quote! {
       #[async_trait::async_trait(?Send)]
       impl #impl_generics lemmy_apub_lib::ActivityHandler for #enum_name #ty_generics #where_clause {
